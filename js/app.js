@@ -210,8 +210,9 @@
 
     if (wp.photo) {
       const src = mediaUrl(wp.photo);
-      html += `<img src="${src}" alt="photo" title="Agrandir" class="exc-popup-img" data-full="${src}" />`;
-      html += `<a href="${src}" target="_blank" rel="noopener" class="exc-popup-link">Agrandir</a>`;
+      // data-src pour le lightbox (évite les problèmes de blob: en target=_blank)
+      html += `<img src="${src}" alt="photo" title="Agrandir" class="exc-popup-img" data-fullsrc="${src}" />`;
+      html += `<button type="button" class="exc-popup-link exc-btn-agrandir" data-fullsrc="${src}">Agrandir</button>`;
     }
     if (wp.video) {
       const src = mediaUrl(wp.video);
@@ -420,14 +421,33 @@
     const kmlText = await kmlFile.async('text');
     const geo = toGeoJSON.kml(new DOMParser().parseFromString(kmlText, 'text/xml'));
 
-    // Extraire les médias
-    const mediaMap = {}; // nom de fichier → blob URL ou blob
+    // Extraire les médias (avec type MIME correct)
+    const mimeFromName = (filename) => {
+      const n = filename.toLowerCase();
+      if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+      if (n.endsWith('.png')) return 'image/png';
+      if (n.endsWith('.gif')) return 'image/gif';
+      if (n.endsWith('.webp')) return 'image/webp';
+      if (n.endsWith('.mp4')) return 'video/mp4';
+      if (n.endsWith('.webm')) return 'video/webm';
+      if (n.endsWith('.mov')) return 'video/quicktime';
+      if (n.endsWith('.mp3')) return 'audio/mpeg';
+      if (n.endsWith('.wav')) return 'audio/wav';
+      if (n.endsWith('.ogg')) return 'audio/ogg';
+      if (n.endsWith('.m4a')) return 'audio/mp4';
+      if (n.endsWith('.html') || n.endsWith('.htm')) return 'text/html';
+      return 'application/octet-stream';
+    };
+
+    const mediaMap = {}; // nom de fichier → Blob typé
 
     for (const [path, zipEntry] of Object.entries(zip.files)) {
       if (zipEntry.dir) continue;
       const lower = path.toLowerCase();
-      const blob = await zipEntry.async('blob');
       const name = path.split('/').pop();
+      const raw = await zipEntry.async('blob');
+      // Forcer le type MIME (JSZip renvoie souvent application/octet-stream)
+      const blob = new Blob([raw], { type: mimeFromName(name) });
 
       if (/\.(jpe?g|png|gif|webp)$/i.test(lower)) {
         mediaMap[name] = blob;
@@ -687,6 +707,47 @@
     // Visite navigation
     document.getElementById('btn-prev').addEventListener('click', () => goToVisite(state.visiteIndex - 1));
     document.getElementById('btn-next').addEventListener('click', () => goToVisite(state.visiteIndex + 1));
+
+    // Lightbox « Agrandir »
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+
+    function openLightbox(src) {
+      if (!src) return;
+      lightboxImg.src = src;
+      lightbox.classList.remove('hidden');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.add('hidden');
+      lightboxImg.src = '';
+    }
+
+    // Délégation : clic sur vignette ou bouton Agrandir dans les popups
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.exc-btn-agrandir');
+      const img = e.target.closest('.exc-popup-img');
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        openLightbox(btn.dataset.fullsrc);
+      } else if (img && img.dataset.fullsrc) {
+        e.preventDefault();
+        e.stopPropagation();
+        openLightbox(img.dataset.fullsrc);
+      }
+    });
+
+    lightbox.querySelector('.lightbox-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeLightbox();
+    });
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !lightbox.classList.contains('hidden')) closeLightbox();
+    });
   }
 
   // ---------- PWA (optimisé GitHub Pages) ----------
