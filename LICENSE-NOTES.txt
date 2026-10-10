@@ -1,5 +1,0 @@
-Notes d'utilisation
-- Aucun JavaScript provenant des pages HTML importées n'est exécuté.
-- Les fichiers HTML locaux doivent être autonomes ou référencer des ressources présentes dans le KMZ.
-- L'application n'envoie pas les circuits ni les médias vers un serveur applicatif.
-- Les fonds cartographiques en ligne sont soumis aux conditions de leurs fournisseurs.
