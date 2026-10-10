@@ -134,27 +134,48 @@
     });
   }
 
+  function mediaUrl(media) {
+    if (!media) return null;
+    if (typeof media === 'string') return media;
+    // Réutilise l’URL déjà créée si possible
+    if (media._objectUrl) return media._objectUrl;
+    media._objectUrl = URL.createObjectURL(media);
+    return media._objectUrl;
+  }
+
   function createMarkerIcon(wp) {
-    const hasPhoto = !!wp.photo;
-    const html = hasPhoto
-      ? `<div style="background:#1a5f2a;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)">📷</div>`
-      : `<div style="background:#c0392b;color:white;border-radius:50%;width:22px;height:22px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`;
+    const hasCamera = !!(wp.photo || wp.video);
+    const cls = hasCamera ? 'exc-marker exc-marker-camera' : 'exc-marker';
+    const inner = hasCamera ? '📷' : '';
     return L.divIcon({
-      className: '',
-      html,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
+      className: cls,
+      html: `<div class="exc-marker-inner">${inner}</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -16]
     });
   }
 
   function updateMarkers(mapType) {
     const group = mapType === 'prod' ? markersProd : markersVisite;
-    const map = mapType === 'prod' ? mapProd : mapVisite;
     group.clearLayers();
 
     state.waypoints.forEach(wp => {
-      const marker = L.marker([wp.lat, wp.lng], { icon: createMarkerIcon(wp), draggable: mapType === 'prod' });
+      const marker = L.marker([wp.lat, wp.lng], {
+        icon: createMarkerIcon(wp),
+        draggable: mapType === 'prod',
+        autoPan: true
+      });
       marker.wpId = wp.id;
+
+      // Contenu popup (fonction → recalculé à chaque ouverture)
+      marker.bindPopup(() => buildPopupContent(wp, mapType === 'visite'), {
+        maxWidth: 280,
+        minWidth: 160,
+        autoPan: true,
+        closeButton: true,
+        className: 'exc-popup'
+      });
 
       if (mapType === 'prod') {
         marker.on('dragend', (e) => {
@@ -162,47 +183,59 @@
           wp.lat = pos.lat;
           wp.lng = pos.lng;
         });
-        marker.on('click', () => selectWaypoint(wp.id));
+        // Clic → sélectionne dans la sidebar + ouvre la popup
+        marker.on('click', () => {
+          selectWaypoint(wp.id);
+          marker.openPopup();
+        });
       } else {
         marker.on('click', () => {
           const idx = state.waypoints.findIndex(w => w.id === wp.id);
           goToVisite(idx);
+          marker.openPopup();
         });
       }
 
-      // Popup basique
-      marker.bindPopup(() => buildPopupContent(wp, mapType === 'visite'));
       group.addLayer(marker);
       wp.marker = marker;
     });
   }
 
   function buildPopupContent(wp, isVisite) {
-    let html = `<strong>${wp.name}</strong>`;
+    let html = `<div class="exc-popup-title">${escapeHtml(wp.name)}</div>`;
     if (wp.comment) {
-      html += `<div style="margin:0.4rem 0;font-size:0.9rem">${wp.comment}</div>`;
+      html += `<div class="exc-popup-comment">${wp.comment}</div>`;
     }
     html += '<div class="popup-media">';
 
     if (wp.photo) {
-      const src = typeof wp.photo === 'string' ? wp.photo : URL.createObjectURL(wp.photo);
-      html += `<img src="${src}" alt="photo" onclick="window.open(this.src)" title="Agrandir" />`;
-      if (isVisite) html += `<a href="${src}" target="_blank">Agrandir</a>`;
+      const src = mediaUrl(wp.photo);
+      html += `<img src="${src}" alt="photo" title="Agrandir" class="exc-popup-img" data-full="${src}" />`;
+      html += `<a href="${src}" target="_blank" rel="noopener" class="exc-popup-link">Agrandir</a>`;
     }
     if (wp.video) {
-      const src = typeof wp.video === 'string' ? wp.video : URL.createObjectURL(wp.video);
-      html += `<video controls src="${src}" style="max-width:240px"></video>`;
+      const src = mediaUrl(wp.video);
+      html += `<video controls playsinline src="${src}" class="exc-popup-video"></video>`;
     }
     if (wp.audio) {
-      const src = typeof wp.audio === 'string' ? wp.audio : URL.createObjectURL(wp.audio);
-      html += `<audio controls src="${src}"></audio>`;
+      const src = mediaUrl(wp.audio);
+      html += `<audio controls src="${src}" class="exc-popup-audio"></audio>`;
     }
     if (wp.html) {
-      const src = typeof wp.html === 'string' ? wp.html : URL.createObjectURL(wp.html);
-      html += `<a href="${src}" target="_blank">Ouvrir la page web</a>`;
+      const src = mediaUrl(wp.html);
+      html += `<a href="${src}" target="_blank" rel="noopener" class="exc-popup-link">Ouvrir la page web</a>`;
     }
     html += '</div>';
     return html;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // ---------- Gestion des waypoints (Production) ----------
@@ -244,8 +277,11 @@
     document.getElementById('wp-html').value = '';
 
     if (wp.marker) {
-      mapProd.setView([wp.lat, wp.lng], Math.max(mapProd.getZoom(), 14));
-      wp.marker.openPopup();
+      mapProd.panTo([wp.lat, wp.lng]);
+      // Laisser le handler click gérer openPopup pour éviter les conflits
+      if (!wp.marker.isPopupOpen()) {
+        wp.marker.openPopup();
+      }
     }
   }
 
@@ -602,11 +638,13 @@
     refreshVisiteList();
 
     document.getElementById('visite-info').innerHTML =
-      `<strong>${wp.name}</strong><br>` +
+      `<strong>${escapeHtml(wp.name)}</strong><br>` +
       (wp.comment ? `<span style="font-size:0.9rem">${wp.comment}</span>` : '');
 
-    mapVisite.setView([wp.lat, wp.lng], Math.max(mapVisite.getZoom(), 15));
-    if (wp.marker) wp.marker.openPopup();
+    mapVisite.panTo([wp.lat, wp.lng]);
+    if (wp.marker && !wp.marker.isPopupOpen()) {
+      wp.marker.openPopup();
+    }
 
     document.getElementById('btn-prev').disabled = index === 0;
     document.getElementById('btn-next').disabled = index === state.waypoints.length - 1;
