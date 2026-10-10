@@ -1,102 +1,94 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#245b45">
-<meta name="description" content="Excursion — éditeur et lecteur de circuits de randonnée KMZ avec photos, vidéos et audios.">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon192.png">
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<title>Excursion</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a5f2a" />
+  <meta name="description" content="Excursion - Éditeur et lecteur de circuits de randonnée multimédia" />
+  <title>Excursion</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="brand-icon">⌖</span><div><h1>Excursion</h1><small>Circuit de randonnée multimédia</small></div></div>
-  <div class="mode-switch" role="group" aria-label="Mode de travail">
-    <label><input type="radio" name="mode" value="production" checked><span>Production</span></label>
-    <label><input type="radio" name="mode" value="visite"><span>Visite</span></label>
-  </div>
-</header>
-<main>
-  <section class="toolbar">
-    <div class="toolbar-group">
-      <label class="file-button">Ouvrir GPX / KML / KMZ<input id="inputCircuit" type="file" accept=".gpx,.kml,.kmz,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"></label>
-      <button id="newCircuit" class="secondary">Nouveau</button>
-      <button id="saveKmz" class="primary">Exporter KMZ</button>
+  <header>
+    <h1>🥾 Excursion</h1>
+    <div class="mode-switch">
+      <label><input type="radio" name="mode" value="production" checked /> Production</label>
+      <label><input type="radio" name="mode" value="visite" /> Visite</label>
     </div>
-    <div class="toolbar-group basemap">
-      <label for="basemap">Fond</label>
-      <select id="basemap">
-        <option value="osm">OpenStreetMap</option>
-        <option value="ign">IGN Plan V2</option>
-        <option value="ortho">IGN BD Ortho</option>
-        <option value="mbtiles">MBTiles local…</option>
-      </select>
-      <input id="inputMbtiles" type="file" accept=".mbtiles,.sqlite,.db" hidden>
-    </div>
-  </section>
-  <section class="status-row">
-    <span id="status" role="status">Prêt. Importez un circuit ou créez un waypoint.</span>
-    <span id="counts">0 waypoint · 0 trace</span>
-  </section>
-  <div class="workspace">
-    <section class="map-panel">
-      <div id="map" aria-label="Carte du circuit"></div>
-      <div class="map-hint" id="mapHint">En Production : cliquez sur la carte pour ajouter un waypoint.</div>
-    </section>
-    <aside class="side-panel">
-      <section id="productionPanel">
-        <div class="panel-heading"><div><h2>Waypoints</h2><p>Glissez un marqueur pour le déplacer.</p></div><button id="addWaypoint" class="round" title="Ajouter un waypoint">+</button></div>
-        <ol id="waypointList" class="waypoint-list"></ol>
-        <div class="editor" id="editor">
-          <h2>Fiche du waypoint</h2>
-          <p class="muted">Sélectionnez un waypoint ou ajoutez-en un sur la carte.</p>
-          <form id="waypointForm">
-            <input id="wpId" type="hidden">
-            <label>Nom<input id="wpName" maxlength="180" placeholder="Nom du lieu"></label>
-            <label>Commentaire (texte ou HTML)<textarea id="wpDescription" rows="4" placeholder="Description du lieu…"></textarea></label>
-            <div class="coord-grid">
-              <label>Latitude<input id="wpLat" type="number" step="any" required></label>
-              <label>Longitude<input id="wpLon" type="number" step="any" required></label>
-            </div>
-            <label>Photo(s)<input id="wpPhotos" type="file" accept="image/*" multiple></label>
-            <div id="photoQueue" class="file-queue"></div>
-            <label>Vidéo(s)<input id="wpVideos" type="file" accept="video/mp4,video/webm,video/ogg" multiple></label>
-            <div id="videoQueue" class="file-queue"></div>
-            <label>Audio(s)<input id="wpAudios" type="file" accept="audio/*" multiple></label>
-            <div id="audioQueue" class="file-queue"></div>
-            <label>Page HTML locale (sans JavaScript)<input id="wpHtml" type="file" accept=".html,.htm,text/html"></label>
-            <div id="htmlQueue" class="file-queue"></div>
-            <label>Liens web (un URL par ligne)<textarea id="wpLinks" rows="2" placeholder="https://…"></textarea></label>
-            <div class="form-actions"><button type="submit" class="primary">Enregistrer la fiche</button><button type="button" id="deleteWaypoint" class="danger">Supprimer</button></div>
-          </form>
+  </header>
+
+  <main>
+    <!-- Panneau Production -->
+    <section id="panel-production" class="panel active">
+      <div class="toolbar">
+        <label class="btn file-btn">
+          📂 Ouvrir GPX / KML / KMZ
+          <input type="file" id="file-input-prod" accept=".gpx,.kml,.kmz" hidden />
+        </label>
+        <button id="btn-add-wp" class="btn" disabled>+ Waypoint</button>
+        <button id="btn-save-kmz" class="btn primary" disabled>💾 Sauver KMZ</button>
+        <select id="basemap-prod" class="basemap-select">
+          <option value="osm">OSM</option>
+          <option value="ign-plan">IGN Plan V2</option>
+          <option value="ign-ortho">IGN BD Ortho</option>
+        </select>
+      </div>
+      <div id="map-prod" class="map"></div>
+      <aside id="sidebar-prod" class="sidebar">
+        <h3>Waypoints</h3>
+        <ul id="wp-list-prod"></ul>
+        <div id="wp-editor" class="wp-editor hidden">
+          <h4>Édition waypoint</h4>
+          <label>Nom <input type="text" id="wp-name" /></label>
+          <label>Commentaire / HTML
+            <textarea id="wp-comment" rows="3"></textarea>
+          </label>
+          <label>Photo <input type="file" id="wp-photo" accept="image/*" /></label>
+          <label>Vidéo <input type="file" id="wp-video" accept="video/*" /></label>
+          <label>Audio <input type="file" id="wp-audio" accept="audio/*" /></label>
+          <label>Page HTML <input type="file" id="wp-html" accept=".htm,.html" /></label>
+          <div class="editor-actions">
+            <button id="wp-save" class="btn primary">Enregistrer</button>
+            <button id="wp-delete" class="btn danger">Supprimer</button>
+            <button id="wp-cancel" class="btn">Annuler</button>
+          </div>
         </div>
-      </section>
-      <section id="visitPanel" hidden>
-        <div class="panel-heading"><div><h2>Visite du circuit</h2><p>Choisissez une épingle ou avancez étape par étape.</p></div></div>
-        <div class="visit-current" id="visitCurrent"><p class="muted">Ouvrez un fichier KMZ pour commencer.</p></div>
-        <div class="visit-actions"><button id="prevWaypoint" class="secondary">← Précédent</button><button id="nextWaypoint" class="primary">Suivant →</button></div>
-        <h3>Étapes du circuit</h3>
-        <ol id="visitList" class="waypoint-list"></ol>
-      </section>
-      <section class="help">
-        <h3>À savoir</h3>
-        <p>Les médias sont intégrés dans le KMZ exporté. Les fonds OSM et IGN nécessitent une connexion, sauf si leurs tuiles sont déjà disponibles localement.</p>
-        <p>Les pages HTML importées sont conservées sans exécuter leur JavaScript. L’éditeur n’autorise pas l’ajout de code JavaScript.</p>
-      </section>
-    </aside>
-  </div>
-</main>
-<div id="mediaModal" class="modal" hidden>
-  <div class="modal-backdrop" data-close="1"></div>
-  <div class="modal-content"><button id="closeModal" class="modal-close" aria-label="Fermer">×</button><div id="modalBody"></div></div>
-</div>
-<footer>Excursion · PWA de randonnée · Export KMZ avec médias embarqués</footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
-<script src="app.js"></script>
+      </aside>
+    </section>
+
+    <!-- Panneau Visite -->
+    <section id="panel-visite" class="panel">
+      <div class="toolbar">
+        <label class="btn file-btn">
+          📂 Ouvrir KMZ
+          <input type="file" id="file-input-visite" accept=".kmz" hidden />
+        </label>
+        <button id="btn-prev" class="btn" disabled>◀ Précédent</button>
+        <button id="btn-next" class="btn" disabled>Suivant ▶</button>
+        <select id="basemap-visite" class="basemap-select">
+          <option value="osm">OSM</option>
+          <option value="ign-plan">IGN Plan V2</option>
+          <option value="ign-ortho">IGN BD Ortho</option>
+        </select>
+      </div>
+      <div id="map-visite" class="map"></div>
+      <aside id="sidebar-visite" class="sidebar">
+        <h3>Visite</h3>
+        <div id="visite-info">Chargez un fichier KMZ pour commencer.</div>
+        <ul id="wp-list-visite"></ul>
+      </aside>
+    </section>
+  </main>
+
+  <div id="status" class="status"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://unpkg.com/@mapbox/togeojson@0.16.2/togeojson.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

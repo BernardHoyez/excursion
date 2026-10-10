@@ -1,0 +1,285 @@
+:root {
+  --primary: #1a5f2a;
+  --primary-dark: #0f3d1a;
+  --accent: #e8a317;
+  --danger: #c0392b;
+  --bg: #f4f7f2;
+  --sidebar-w: 320px;
+  --header-h: 56px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: #222;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  height: var(--header-h);
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 1rem;
+}
+
+.mode-switch label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+}
+
+main {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel {
+  display: none;
+  height: 100%;
+  position: relative;
+}
+
+.panel.active {
+  display: flex;
+}
+
+.toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.92);
+  padding: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.btn {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #eee;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.btn.danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.file-btn {
+  display: inline-block;
+}
+
+.basemap-select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 0.875rem;
+}
+
+.map {
+  flex: 1;
+  height: 100%;
+  width: calc(100% - var(--sidebar-w));
+}
+
+.sidebar {
+  width: var(--sidebar-w);
+  background: white;
+  border-left: 1px solid #ddd;
+  padding: 1rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar h3 {
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sidebar li:hover {
+  background: #eef5ee;
+}
+
+.sidebar li.active {
+  background: #d4edda;
+  border-color: var(--primary);
+}
+
+.sidebar li .icon {
+  font-size: 1.1rem;
+}
+
+.wp-editor {
+  background: #f8faf8;
+  border: 1px solid #cce0cc;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wp-editor.hidden {
+  display: none;
+}
+
+.wp-editor label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  gap: 0.2rem;
+}
+
+.wp-editor input[type="text"],
+.wp-editor textarea {
+  padding: 0.35rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.status {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: white;
+  padding: 0.5rem 1.2rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 2000;
+  pointer-events: none;
+}
+
+.status.show {
+  opacity: 1;
+}
+
+/* Leaflet popup custom */
+.leaflet-popup-content {
+  min-width: 180px;
+}
+
+.popup-media img {
+  max-width: 220px;
+  max-height: 160px;
+  display: block;
+  margin: 0.4rem 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.popup-media video,
+.popup-media audio {
+  max-width: 240px;
+  display: block;
+  margin: 0.4rem 0;
+}
+
+.popup-media a {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .panel.active {
+    flex-direction: column;
+  }
+  .map {
+    width: 100%;
+    height: 55%;
+  }
+  .sidebar {
+    width: 100%;
+    height: 45%;
+    border-left: none;
+    border-top: 1px solid #ddd;
+  }
+  .toolbar {
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    justify-content: center;
+  }
+}

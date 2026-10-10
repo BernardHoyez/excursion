@@ -1,34 +1,79 @@
-# Excursion — PWA de circuits de randonnée
+# Excursion – PWA
 
-Application statique en français, prévue pour GitHub Pages. Deux modes commutables :
-- **Production** : import GPX/KML/KMZ, édition des waypoints, association de photos, vidéos, audios, pages HTML sans JavaScript, export KMZ.
-- **Visite** : navigation sur la carte, fiche multimédia par clic et parcours séquentiel.
+Première version fonctionnelle d’une Progressive Web App pour créer et consulter des circuits de randonnée multimédia.
 
-## Déploiement GitHub Pages
-1. Décompresser le ZIP.
-2. Copier le contenu du dossier `excursion` à la racine du dépôt GitHub Pages souhaité (ou dans un sous-dossier).
-3. Activer GitHub Pages dans les paramètres du dépôt.
-4. Ouvrir l'URL publiée avec une connexion Internet lors du premier chargement.
+## Fonctionnalités
 
-## Cartographie
-- OSM : tuiles en ligne.
-- IGN Plan V2 : WMTS public Géoplateforme.
-- IGN BD Ortho : WMTS public Géoplateforme.
-- MBTiles : sélection locale ; nécessite la bibliothèque sql.js et son fichier WASM accessibles au chargement.
+### Mode Production
+- Chargement de fichiers **GPX**, **KML** ou **KMZ**
+- Affichage de la trace et des waypoints sur carte Leaflet
+- Fonds de carte : OSM, IGN Plan V2, IGN BD Ortho
+- Ajout de waypoints par clic sur la carte
+- Édition (nom, commentaire/HTML, photo, vidéo, audio, page HTML)
+- Déplacement des waypoints (glisser-déposer)
+- Suppression de waypoints
+- Sauvegarde au format **KMZ** structuré :
+  ```
+  randonnee.kmz
+  ├── doc.kml
+  ├── images/
+  ├── videos/
+  ├── audios/
+  └── html/
+  ```
 
-Les tuiles OSM/IGN ne sont pas embarquées dans l'application. Respecter les conditions d'utilisation des fournisseurs de fonds.
+### Mode Visite
+- Chargement d’un KMZ produit par le mode Production
+- Affichage carte + liste des points
+- Navigation séquentielle (Précédent / Suivant) ou par clic
+- Popups avec vignette photo (lien agrandir), lecteur vidéo, lecteur audio ou lien page web
 
-## Format KMZ produit
-`doc.kml`, `images/`, `videos/`, `audios/`, `html/`. Les chemins sont relatifs. Les descriptions KML contiennent des liens et éléments multimédias HTML pour les logiciels compatibles ; le mode Visite de la PWA utilise son propre lecteur multimédia.
+## Utilisation
 
-## Limites de cette première version
-- L'import GPX/KML récupère la trace et les waypoints ponctuels. Les itinéraires GPX sont dessinés comme une ligne ; les extensions GPX spécifiques à certains logiciels peuvent ne pas être conservées.
-- Le KMZ est destiné prioritairement à être relu dans Excursion. La prise en charge du HTML et des médias dans les descriptions varie entre les logiciels KML.
-- Les pages HTML sont neutralisées avant intégration (scripts, gestionnaires d'événements, iframes et formulaires supprimés). N'y placez pas de JavaScript.
-- La bibliothèque Leaflet et les bibliothèques ZIP/SQLite sont chargées depuis des CDN : une connexion reste nécessaire au premier chargement. Le service worker met en cache l'application, mais pas automatiquement les bibliothèques externes ni les tuiles cartographiques.
-- La lecture MBTiles dans le navigateur varie selon la version du fichier et le type de tuiles. Cette version vise les MBTiles raster PNG/JPEG standard, en schéma TMS.
+1. Ouvrir `index.html` dans un navigateur moderne (Chrome, Edge, Firefox, Safari).
+2. Pour le mode PWA hors-ligne : servir le dossier via un serveur local **ou** déployer sur **GitHub Pages**.
 
-## Fichiers
-- `index.html`, `style.css`, `app.js`
-- `manifest.webmanifest`, `sw.js`
-- `icon192.png`, `icon512.png`
+### Serveur local rapide
+```bash
+# Python
+python3 -m http.server 8080
+
+# ou Node
+npx serve .
+```
+Puis ouvrir http://localhost:8080
+
+### Déploiement GitHub Pages
+
+1. Créez un dépôt GitHub (ex. `excursion`).
+2. Poussez tout le contenu de ce dossier à la racine du dépôt (ou dans `/docs`).
+3. Dans **Settings → Pages** :
+   - Source : Deploy from a branch
+   - Branch : `main` (ou `master`) / root (ou `/docs`)
+4. L’application sera disponible sur :
+   `https://<user>.github.io/excursion/`
+
+Le Service Worker utilise des **chemins relatifs** et une stratégie **network-first**.  
+Il se met à jour automatiquement à chaque nouveau déploiement (plus de cache bloqué).
+
+## Stack
+- HTML / CSS / Vanilla JS
+- Leaflet 1.9
+- JSZip
+- @mapbox/togeojson
+- Service Worker + Web App Manifest
+
+## Limitations de cette première version
+- Pas encore de support MBTiles offline (prévu)
+- Les médias sont stockés en mémoire (attention aux gros fichiers vidéo)
+- Pas d’édition de la trace elle-même
+- IGN nécessite une connexion (tuiles en ligne)
+- Structure KMZ : les ExtendedData sont utilisés pour relier les médias
+
+## Prochaines améliorations possibles
+- Support MBTiles (IndexedDB)
+- Compression des images
+- Édition de la trace (découpage, inversion…)
+- Export GPX
+- Mode hors-ligne complet des tuiles
+- Géolocalisation live en mode Visite
