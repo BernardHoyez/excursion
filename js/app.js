@@ -28,6 +28,15 @@
   let trackLayerVisite = null;
   let markersProd = L.layerGroup();
   let markersVisite = L.layerGroup();
+  let currentBaseProd = null;   // couche fond actuelle
+  let currentBaseVisite = null;
+
+  // MBTiles chargé en mémoire (partagé entre les deux cartes)
+  const mbtilesState = {
+    db: null,          // base sql.js
+    metadata: null,    // { name, format, minzoom, maxzoom, bounds, attribution }
+    fileName: null
+  };
 
   const BASEMAPS = {
     osm: {
@@ -60,13 +69,64 @@
     return !!(wp.comment || wp.photo || wp.video || wp.audio || wp.html);
   }
 
+  // ---------- Couche Leaflet MBTiles (sql.js) ----------
+  const MBTilesLayer = L.GridLayer.extend({
+    initialize(options) {
+      L.GridLayer.prototype.initialize.call(this, options);
+      this._db = options.db;
+      this._format = (options.format || 'png').toLowerCase();
+      this._mime = this._format === 'jpg' || this._format === 'jpeg'
+        ? 'image/jpeg'
+        : this._format === 'webp'
+          ? 'image/webp'
+          : 'image/png';
+    },
+
+    createTile(coords, done) {
+      const tile = document.createElement('img');
+      tile.alt = '';
+      tile.setAttribute('role', 'presentation');
+
+      // MBTiles utilise le schéma TMS (Y inversé)
+      const z = coords.z;
+      const x = coords.x;
+      const y = (Math.pow(2, z) - 1) - coords.y;
+
+      try {
+        const stmt = this._db.prepare(
+          'SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?'
+        );
+        stmt.bind([z, x, y]);
+        if (stmt.step()) {
+          const data = stmt.get()[0]; // Uint8Array
+          const blob = new Blob([data], { type: this._mime });
+          tile.src = URL.createObjectURL(blob);
+          tile.onload = () => {
+            URL.revokeObjectURL(tile.src);
+            done(null, tile);
+          };
+          tile.onerror = () => done(null, tile);
+        } else {
+          // Tuile absente → transparente
+          tile.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+          done(null, tile);
+        }
+        stmt.free();
+      } catch (err) {
+        console.warn('MBTiles tile error', err);
+        done(err, tile);
+      }
+      return tile;
+    }
+  });
+
   // ---------- Initialisation des cartes ----------
   function initMaps() {
     mapProd = L.map('map-prod', { zoomControl: true }).setView([46.6, 2.4], 6);
     mapVisite = L.map('map-visite', { zoomControl: true }).setView([46.6, 2.4], 6);
 
-    L.tileLayer(BASEMAPS.osm.url, { attribution: BASEMAPS.osm.attr, maxZoom: 19 }).addTo(mapProd);
-    L.tileLayer(BASEMAPS.osm.url, { attribution: BASEMAPS.osm.attr, maxZoom: 19 }).addTo(mapVisite);
+    currentBaseProd = L.tileLayer(BASEMAPS.osm.url, { attribution: BASEMAPS.osm.attr, maxZoom: 19 }).addTo(mapProd);
+    currentBaseVisite = L.tileLayer(BASEMAPS.osm.url, { attribution: BASEMAPS.osm.attr, maxZoom: 19 }).addTo(mapVisite);
 
     markersProd.addTo(mapProd);
     markersVisite.addTo(mapVisite);
@@ -84,12 +144,140 @@
     });
   }
 
-  function setBasemap(map, key) {
-    map.eachLayer(l => {
-      if (l instanceof L.TileLayer) map.removeLayer(l);
-    });
+  function removeBaseLayer(map, which) {
+    if (which === 'prod' && currentBaseProd) {
+      map.removeLayer(currentBaseProd);
+      currentBaseProd = null;
+    }
+    if (which === 'visite' && currentBaseVisite) {
+      map.removeLayer(currentBaseVisite);
+      currentBaseVisite = null;
+    }
+  }
+
+  function setBasemap(map, key, which) {
+    removeBaseLayer(map, which);
+
+    if (key === 'mbtiles') {
+      if (!mbtilesState.db) {
+        showStatus('Chargez d’abord un fichier MBTiles');
+        return;
+      }
+      const meta = mbtilesState.metadata || {};
+      const layer = new MBTilesLayer({
+        db: mbtilesState.db,
+        format: meta.format || 'png',
+        minZoom: meta.minzoom != null ? meta.minzoom : 0,
+        maxZoom: meta.maxzoom != null ? meta.maxzoom : 22,
+        attribution: meta.attribution || mbtilesState.fileName || 'MBTiles'
+      });
+      layer.addTo(map);
+      if (which === 'prod') currentBaseProd = layer;
+      else currentBaseVisite = layer;
+
+      // Zoom / centrage sur les bounds du MBTiles si disponibles
+      if (meta.bounds && meta.bounds.length === 4) {
+        const [west, south, east, north] = meta.bounds;
+        try {
+          map.fitBounds([[south, west], [north, east]]);
+        } catch (_) { /* ignore */ }
+      }
+      return;
+    }
+
     const bm = BASEMAPS[key] || BASEMAPS.osm;
-    L.tileLayer(bm.url, { attribution: bm.attr, maxZoom: 19 }).addTo(map);
+    const layer = L.tileLayer(bm.url, { attribution: bm.attr, maxZoom: 19 });
+    layer.addTo(map);
+    if (which === 'prod') currentBaseProd = layer;
+    else currentBaseVisite = layer;
+  }
+
+  // ---------- Chargement MBTiles local ----------
+  async function loadMBTilesFile(file) {
+    if (!file) return;
+    showStatus('Chargement MBTiles… (peut prendre un moment)');
+
+    try {
+      if (typeof initSqlJs !== 'function') {
+        throw new Error('sql.js non chargé');
+      }
+
+      const SQL = await initSqlJs({
+        locateFile: (f) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`
+      });
+
+      const buffer = await file.arrayBuffer();
+      const db = new SQL.Database(new Uint8Array(buffer));
+
+      // Lire metadata
+      const meta = {};
+      try {
+        const res = db.exec('SELECT name, value FROM metadata');
+        if (res.length && res[0].values) {
+          res[0].values.forEach(([name, value]) => {
+            meta[name] = value;
+          });
+        }
+      } catch (e) {
+        console.warn('Pas de table metadata', e);
+      }
+
+      const metadata = {
+        name: meta.name || file.name,
+        format: (meta.format || 'png').toLowerCase(),
+        minzoom: meta.minzoom != null ? parseInt(meta.minzoom, 10) : 0,
+        maxzoom: meta.maxzoom != null ? parseInt(meta.maxzoom, 10) : 18,
+        attribution: meta.attribution || file.name,
+        bounds: null
+      };
+
+      if (meta.bounds) {
+        // "west,south,east,north"
+        const parts = meta.bounds.split(',').map(Number);
+        if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+          metadata.bounds = parts;
+        }
+      }
+
+      // Vérifier que la table tiles existe
+      const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='tiles'");
+      if (!tables.length) {
+        db.close();
+        throw new Error('Fichier MBTiles invalide (pas de table tiles)');
+      }
+
+      // Fermer l’ancienne base si présente
+      if (mbtilesState.db) {
+        try { mbtilesState.db.close(); } catch (_) {}
+      }
+
+      mbtilesState.db = db;
+      mbtilesState.metadata = metadata;
+      mbtilesState.fileName = file.name;
+
+      // Activer l’option dans les deux selects
+      ['basemap-prod', 'basemap-visite'].forEach((id) => {
+        const sel = document.getElementById(id);
+        const opt = sel.querySelector('option[value="mbtiles"]');
+        if (opt) {
+          opt.disabled = false;
+          opt.textContent = `MBTiles: ${file.name.length > 20 ? file.name.slice(0, 18) + '…' : file.name}`;
+        }
+        sel.value = 'mbtiles';
+      });
+
+      // Appliquer sur la carte active
+      if (state.mode === 'production') {
+        setBasemap(mapProd, 'mbtiles', 'prod');
+      } else {
+        setBasemap(mapVisite, 'mbtiles', 'visite');
+      }
+
+      showStatus(`MBTiles chargé : ${file.name} (z${metadata.minzoom}–${metadata.maxzoom})`);
+    } catch (err) {
+      console.error(err);
+      showStatus('Erreur MBTiles : ' + err.message, 4000);
+    }
   }
 
   // ---------- Gestion des modes ----------
@@ -701,8 +889,18 @@
     });
 
     // Basemaps
-    document.getElementById('basemap-prod').addEventListener('change', e => setBasemap(mapProd, e.target.value));
-    document.getElementById('basemap-visite').addEventListener('change', e => setBasemap(mapVisite, e.target.value));
+    document.getElementById('basemap-prod').addEventListener('change', e => setBasemap(mapProd, e.target.value, 'prod'));
+    document.getElementById('basemap-visite').addEventListener('change', e => setBasemap(mapVisite, e.target.value, 'visite'));
+
+    // Chargement MBTiles local
+    document.getElementById('mbtiles-input-prod').addEventListener('change', e => {
+      if (e.target.files[0]) loadMBTilesFile(e.target.files[0]);
+      e.target.value = '';
+    });
+    document.getElementById('mbtiles-input-visite').addEventListener('change', e => {
+      if (e.target.files[0]) loadMBTilesFile(e.target.files[0]);
+      e.target.value = '';
+    });
 
     // Visite navigation
     document.getElementById('btn-prev').addEventListener('click', () => goToVisite(state.visiteIndex - 1));

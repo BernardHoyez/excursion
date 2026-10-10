@@ -35,7 +35,12 @@
           <option value="osm">OSM</option>
           <option value="ign-plan">IGN Plan V2</option>
           <option value="ign-ortho">IGN BD Ortho</option>
+          <option value="mbtiles" disabled>MBTiles (charger…)</option>
         </select>
+        <label class="btn file-btn" title="Charger un fichier MBTiles local">
+          🗺️ MBTiles
+          <input type="file" id="mbtiles-input-prod" accept=".mbtiles" hidden />
+        </label>
       </div>
       <div id="map-prod" class="map"></div>
       <aside id="sidebar-prod" class="sidebar">
@@ -73,7 +78,12 @@
           <option value="osm">OSM</option>
           <option value="ign-plan">IGN Plan V2</option>
           <option value="ign-ortho">IGN BD Ortho</option>
+          <option value="mbtiles" disabled>MBTiles (charger…)</option>
         </select>
+        <label class="btn file-btn" title="Charger un fichier MBTiles local">
+          🗺️ MBTiles
+          <input type="file" id="mbtiles-input-visite" accept=".mbtiles" hidden />
+        </label>
       </div>
       <div id="map-visite" class="map"></div>
       <aside id="sidebar-visite" class="sidebar">
@@ -95,6 +105,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.2/togeojson.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
