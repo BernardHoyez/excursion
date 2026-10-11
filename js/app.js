@@ -69,20 +69,22 @@
     return !!(wp.comment || wp.photo || wp.video || wp.audio || wp.html);
   }
 
-  /** Retire les mentions techniques ajoutées à la sauvegarde KMZ (Photo:, HTML:, chemins, etc.) */
+  /** Retire les mentions techniques et le HTML média issus du KML/KMZ */
   function cleanComment(text) {
     if (!text) return '';
     let s = String(text);
+    // Supprimer explicitement toutes les balises image (souvent laissées par Google Earth / KML)
+    s = s.replace(/<img\b[^>]*>/gi, '');
     // Normaliser les sauts de ligne HTML
     s = s.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
-    // Retirer balises HTML restantes
+    // Retirer le reste des balises HTML
     s = s.replace(/<[^>]+>/g, '');
     // Décoder quelques entités courantes
     s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-    // Supprimer les mentions générées à la sauvegarde (sur la même ligne ou séparées)
+    // Supprimer les mentions générées à la sauvegarde
     s = s.replace(/(?:^|\s)(?:Photo|Vidéo|Video|Audio|HTML)\s*:\s*\S+/gi, '');
     // Supprimer les chemins médias résiduels
-    s = s.replace(/(?:^|\s)(?:images|videos|audios|html)\/[^\s]+/gi, '');
+    s = s.replace(/(?:^|\s)(?:images|videos|audios|html)\/[^\s"'<>]+/gi, '');
     // Nettoyer espaces / lignes vides
     s = s
       .split(/\r?\n/)
@@ -418,15 +420,17 @@
     let html = `<div class="exc-popup-title">${escapeHtml(wp.name)}</div>`;
     const comment = cleanComment(wp.comment);
     if (comment) {
-      html += `<div class="exc-popup-comment">${comment}</div>`;
+      // Texte échappé pour éviter toute <img> résiduelle du KML ; les retours ligne → <br>
+      html += `<div class="exc-popup-comment">${escapeHtml(comment).replace(/\n/g, '<br>')}</div>`;
     }
     html += '<div class="popup-media">';
 
     if (wp.photo) {
       const src = mediaUrl(wp.photo);
-      // data-src pour le lightbox (évite les problèmes de blob: en target=_blank)
-      html += `<img src="${src}" alt="photo" title="Agrandir" class="exc-popup-img" data-fullsrc="${src}" />`;
-      html += `<button type="button" class="exc-popup-link exc-btn-agrandir" data-fullsrc="${src}">Agrandir</button>`;
+      if (src && (src.startsWith('blob:') || src.startsWith('data:') || /^https?:/i.test(src))) {
+        html += `<img src="${src}" alt="" title="Agrandir" class="exc-popup-img" data-fullsrc="${src}" onerror="this.style.display='none'" />`;
+        html += `<button type="button" class="exc-popup-link exc-btn-agrandir" data-fullsrc="${src}">Agrandir</button>`;
+      }
     }
     if (wp.video) {
       const src = mediaUrl(wp.video);
