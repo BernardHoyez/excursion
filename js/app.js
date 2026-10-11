@@ -69,6 +69,24 @@
     return !!(wp.comment || wp.photo || wp.video || wp.audio || wp.html);
   }
 
+  /** Retire les lignes techniques ajoutées à la sauvegarde KMZ (Photo:, Vidéo:, etc.) */
+  function cleanComment(text) {
+    if (!text) return '';
+    return String(text)
+      .split(/\r?\n/)
+      .filter((line) => {
+        const t = line.trim();
+        if (!t) return false;
+        // Lignes générées à la sauvegarde
+        if (/^(Photo|Vidéo|Video|Audio|HTML)\s*:/i.test(t)) return false;
+        // Chemins médias seuls
+        if (/^(images|videos|audios|html)\//i.test(t)) return false;
+        return true;
+      })
+      .join('\n')
+      .trim();
+  }
+
   // ---------- Couche Leaflet MBTiles (sql.js) ----------
   const MBTilesLayer = L.GridLayer.extend({
     initialize(options) {
@@ -391,8 +409,9 @@
 
   function buildPopupContent(wp, isVisite) {
     let html = `<div class="exc-popup-title">${escapeHtml(wp.name)}</div>`;
-    if (wp.comment) {
-      html += `<div class="exc-popup-comment">${wp.comment}</div>`;
+    const comment = cleanComment(wp.comment);
+    if (comment) {
+      html += `<div class="exc-popup-comment">${comment}</div>`;
     }
     html += '<div class="popup-media">';
 
@@ -582,7 +601,7 @@
           name: props.name || props.Name || 'Point',
           lat,
           lng,
-          comment: props.description || props.Description || props.comment || ''
+          comment: cleanComment(props.description || props.Description || props.comment || '')
         });
       }
     });
@@ -663,25 +682,27 @@
         const [lng, lat] = f.geometry.coordinates;
         const props = f.properties || {};
         const name = props.name || props.Name || 'Point';
-        let comment = props.description || props.Description || '';
+        const rawDesc = props.description || props.Description || '';
         let photo = null, video = null, audio = null, html = null;
 
-        // Chercher des liens vers médias dans la description ou les propriétés
-        // Format simple : on regarde les ExtendedData ou la description
+        // Chercher des liens vers médias dans ExtendedData ou la description
         if (props.photo) photo = mediaMap[props.photo] || null;
         if (props.video) video = mediaMap[props.video] || null;
         if (props.audio) audio = mediaMap[props.audio] || null;
         if (props.html) html = mediaMap[props.html] || null;
 
-        // Fallback : chercher dans la description des noms de fichiers
+        // Fallback : noms de fichiers présents dans la description brute
         Object.keys(mediaMap).forEach(fname => {
-          if (comment.includes(fname) || (props.description && props.description.includes(fname))) {
+          if (rawDesc.includes(fname)) {
             if (/\.(jpe?g|png|gif|webp)$/i.test(fname) && !photo) photo = mediaMap[fname];
             if (/\.(mp4|webm)$/i.test(fname) && !video) video = mediaMap[fname];
             if (/\.(mp3|wav)$/i.test(fname) && !audio) audio = mediaMap[fname];
             if (/\.html?$/i.test(fname) && !html) html = mediaMap[fname];
           }
         });
+
+        // Commentaire affiché = description sans les lignes techniques Photo:/HTML:/…
+        const comment = cleanComment(rawDesc);
 
         state.waypoints.push({
           id: uid(),
@@ -845,9 +866,10 @@
     const wp = state.waypoints[index];
     refreshVisiteList();
 
+    const visComment = cleanComment(wp.comment);
     document.getElementById('visite-info').innerHTML =
       `<strong>${escapeHtml(wp.name)}</strong><br>` +
-      (wp.comment ? `<span style="font-size:0.9rem">${wp.comment}</span>` : '');
+      (visComment ? `<span style="font-size:0.9rem">${visComment}</span>` : '');
 
     mapVisite.panTo([wp.lat, wp.lng]);
     if (wp.marker && !wp.marker.isPopupOpen()) {
