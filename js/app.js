@@ -479,10 +479,28 @@
     return wp;
   }
 
+  // Médias marqués pour suppression (avant Enregistrer)
+  const pendingRemove = { photo: false, video: false, audio: false, html: false };
+
+  function updateMediaStatus(wp) {
+    ['photo', 'video', 'audio', 'html'].forEach((key) => {
+      const el = document.getElementById(`wp-${key}-status`);
+      if (!el) return;
+      const has = !!(wp && wp[key]) && !pendingRemove[key];
+      el.classList.toggle('hidden', !has);
+    });
+  }
+
   function selectWaypoint(id) {
     state.currentWpId = id;
     const wp = state.waypoints.find(w => w.id === id);
     if (!wp) return;
+
+    // Réinitialiser les suppressions en attente
+    pendingRemove.photo = false;
+    pendingRemove.video = false;
+    pendingRemove.audio = false;
+    pendingRemove.html = false;
 
     refreshWpList();
     const editor = document.getElementById('wp-editor');
@@ -495,9 +513,10 @@
     document.getElementById('wp-audio').value = '';
     document.getElementById('wp-html').value = '';
 
+    updateMediaStatus(wp);
+
     if (wp.marker) {
       mapProd.panTo([wp.lat, wp.lng]);
-      // Laisser le handler click gérer openPopup pour éviter les conflits
       if (!wp.marker.isPopupOpen()) {
         wp.marker.openPopup();
       }
@@ -516,6 +535,13 @@
     const audioFile = document.getElementById('wp-audio').files[0];
     const htmlFile = document.getElementById('wp-html').files[0];
 
+    // Appliquer les retraits demandés
+    if (pendingRemove.photo) wp.photo = null;
+    if (pendingRemove.video) wp.video = null;
+    if (pendingRemove.audio) wp.audio = null;
+    if (pendingRemove.html) wp.html = null;
+
+    // Puis les nouveaux fichiers (remplacent ou ajoutent)
     if (photoFile) wp.photo = photoFile;
     if (videoFile) wp.video = videoFile;
     if (audioFile) wp.audio = audioFile;
@@ -525,6 +551,8 @@
       showStatus('⚠️ Un waypoint doit avoir au moins un élément (commentaire, photo, vidéo, audio ou HTML)');
       return;
     }
+
+    pendingRemove.photo = pendingRemove.video = pendingRemove.audio = pendingRemove.html = false;
 
     updateMarkers('prod');
     refreshWpList();
@@ -921,7 +949,39 @@
     document.getElementById('wp-cancel').addEventListener('click', () => {
       document.getElementById('wp-editor').classList.add('hidden');
       state.currentWpId = null;
+      pendingRemove.photo = pendingRemove.video = pendingRemove.audio = pendingRemove.html = false;
       refreshWpList();
+    });
+
+    // Retirer un média attaché (photo, vidéo, audio, HTML)
+    document.querySelectorAll('.btn-remove-media').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.media;
+        if (!key) return;
+        pendingRemove[key] = true;
+        const input = document.getElementById(`wp-${key}`);
+        if (input) input.value = '';
+        const wp = state.waypoints.find(w => w.id === state.currentWpId);
+        updateMediaStatus(wp);
+        showStatus(`${key} sera retiré à l’enregistrement`);
+      });
+    });
+
+    // Nouveau fichier choisi → annule le retrait en attente pour ce type
+    ['photo', 'video', 'audio', 'html'].forEach((key) => {
+      const input = document.getElementById(`wp-${key}`);
+      if (!input) return;
+      input.addEventListener('change', () => {
+        if (input.files[0]) {
+          pendingRemove[key] = false;
+          const status = document.getElementById(`wp-${key}-status`);
+          if (status) {
+            status.classList.remove('hidden');
+            const label = status.querySelector('.media-status-label');
+            if (label) label.textContent = `📎 ${input.files[0].name}`;
+          }
+        }
+      });
     });
 
     // Basemaps

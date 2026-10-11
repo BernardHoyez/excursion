@@ -52,10 +52,34 @@
           <label>Commentaire / HTML
             <textarea id="wp-comment" rows="3"></textarea>
           </label>
-          <label>Photo <input type="file" id="wp-photo" accept="image/*" /></label>
-          <label>Vidéo <input type="file" id="wp-video" accept="video/*" /></label>
-          <label>Audio <input type="file" id="wp-audio" accept="audio/*" /></label>
-          <label>Page HTML <input type="file" id="wp-html" accept=".htm,.html" /></label>
+          <div class="media-field">
+            <label>Photo <input type="file" id="wp-photo" accept="image/*" /></label>
+            <div id="wp-photo-status" class="media-status hidden">
+              <span class="media-status-label">📷 Photo attachée</span>
+              <button type="button" class="btn-remove-media" data-media="photo" title="Retirer la photo">✕ Retirer</button>
+            </div>
+          </div>
+          <div class="media-field">
+            <label>Vidéo <input type="file" id="wp-video" accept="video/*" /></label>
+            <div id="wp-video-status" class="media-status hidden">
+              <span class="media-status-label">🎬 Vidéo attachée</span>
+              <button type="button" class="btn-remove-media" data-media="video" title="Retirer la vidéo">✕ Retirer</button>
+            </div>
+          </div>
+          <div class="media-field">
+            <label>Audio <input type="file" id="wp-audio" accept="audio/*" /></label>
+            <div id="wp-audio-status" class="media-status hidden">
+              <span class="media-status-label">🔊 Audio attaché</span>
+              <button type="button" class="btn-remove-media" data-media="audio" title="Retirer l’audio">✕ Retirer</button>
+            </div>
+          </div>
+          <div class="media-field">
+            <label>Page HTML <input type="file" id="wp-html" accept=".htm,.html" /></label>
+            <div id="wp-html-status" class="media-status hidden">
+              <span class="media-status-label">🌐 Page HTML attachée</span>
+              <button type="button" class="btn-remove-media" data-media="html" title="Retirer la page HTML">✕ Retirer</button>
+            </div>
+          </div>
           <div class="editor-actions">
             <button id="wp-save" class="btn primary">Enregistrer</button>
             <button id="wp-delete" class="btn danger">Supprimer</button>

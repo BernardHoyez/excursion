@@ -215,6 +215,48 @@ main {
   margin-top: 0.4rem;
 }
 
+.media-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.media-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.media-status.hidden {
+  display: none;
+}
+
+.media-status-label {
+  color: #1a5f2a;
+}
+
+.btn-remove-media {
+  background: #fff;
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-remove-media:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
 .status {
   position: fixed;
   bottom: 12px;
