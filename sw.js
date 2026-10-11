@@ -4,7 +4,7 @@
  *             Network-only pour les tuiles cartographiques
  */
 
-const CACHE_VERSION = 'excursion-v5';
+const CACHE_VERSION = 'excursion-v6';
 const SHELL_CACHE = `shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 

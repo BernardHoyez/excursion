@@ -69,22 +69,29 @@
     return !!(wp.comment || wp.photo || wp.video || wp.audio || wp.html);
   }
 
-  /** Retire les lignes techniques ajoutées à la sauvegarde KMZ (Photo:, Vidéo:, etc.) */
+  /** Retire les mentions techniques ajoutées à la sauvegarde KMZ (Photo:, HTML:, chemins, etc.) */
   function cleanComment(text) {
     if (!text) return '';
-    return String(text)
+    let s = String(text);
+    // Normaliser les sauts de ligne HTML
+    s = s.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
+    // Retirer balises HTML restantes
+    s = s.replace(/<[^>]+>/g, '');
+    // Décoder quelques entités courantes
+    s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    // Supprimer les mentions générées à la sauvegarde (sur la même ligne ou séparées)
+    s = s.replace(/(?:^|\s)(?:Photo|Vidéo|Video|Audio|HTML)\s*:\s*\S+/gi, '');
+    // Supprimer les chemins médias résiduels
+    s = s.replace(/(?:^|\s)(?:images|videos|audios|html)\/[^\s]+/gi, '');
+    // Nettoyer espaces / lignes vides
+    s = s
       .split(/\r?\n/)
-      .filter((line) => {
-        const t = line.trim();
-        if (!t) return false;
-        // Lignes générées à la sauvegarde
-        if (/^(Photo|Vidéo|Video|Audio|HTML)\s*:/i.test(t)) return false;
-        // Chemins médias seuls
-        if (/^(images|videos|audios|html)\//i.test(t)) return false;
-        return true;
-      })
+      .map((l) => l.trim())
+      .filter(Boolean)
       .join('\n')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim();
+    return s;
   }
 
   // ---------- Couche Leaflet MBTiles (sql.js) ----------
@@ -477,7 +484,7 @@
     const editor = document.getElementById('wp-editor');
     editor.classList.remove('hidden');
     document.getElementById('wp-name').value = wp.name;
-    document.getElementById('wp-comment').value = wp.comment || '';
+    document.getElementById('wp-comment').value = cleanComment(wp.comment || '');
     // Reset file inputs
     document.getElementById('wp-photo').value = '';
     document.getElementById('wp-video').value = '';
@@ -498,7 +505,7 @@
     if (!wp) return;
 
     wp.name = document.getElementById('wp-name').value.trim() || 'Sans nom';
-    wp.comment = document.getElementById('wp-comment').value.trim();
+    wp.comment = cleanComment(document.getElementById('wp-comment').value);
 
     const photoFile = document.getElementById('wp-photo').files[0];
     const videoFile = document.getElementById('wp-video').files[0];
@@ -685,11 +692,18 @@
         const rawDesc = props.description || props.Description || '';
         let photo = null, video = null, audio = null, html = null;
 
-        // Chercher des liens vers médias dans ExtendedData ou la description
-        if (props.photo) photo = mediaMap[props.photo] || null;
-        if (props.video) video = mediaMap[props.video] || null;
-        if (props.audio) audio = mediaMap[props.audio] || null;
-        if (props.html) html = mediaMap[props.html] || null;
+        // Résoudre un nom de média (fichier seul ou chemin type images/photo_01.jpg)
+        const resolveMedia = (ref) => {
+          if (!ref) return null;
+          if (mediaMap[ref]) return mediaMap[ref];
+          const base = String(ref).split('/').pop();
+          return mediaMap[base] || null;
+        };
+
+        if (props.photo) photo = resolveMedia(props.photo);
+        if (props.video) video = resolveMedia(props.video);
+        if (props.audio) audio = resolveMedia(props.audio);
+        if (props.html) html = resolveMedia(props.html);
 
         // Fallback : noms de fichiers présents dans la description brute
         Object.keys(mediaMap).forEach(fname => {
@@ -817,12 +831,8 @@
         htmlFolder.file(htmlName, blob);
       }
 
-      // Description enrichie
-      let desc = wp.comment || '';
-      if (photoName) desc += `\nPhoto: images/${photoName}`;
-      if (videoName) desc += `\nVidéo: videos/${videoName}`;
-      if (audioName) desc += `\nAudio: audios/${audioName}`;
-      if (htmlName) desc += `\nHTML: html/${htmlName}`;
+      // Description = commentaire utilisateur uniquement (médias via ExtendedData)
+      const desc = cleanComment(wp.comment || '');
 
       kml += `    <Placemark>
       <name>${escapeXml(wp.name)}</name>
