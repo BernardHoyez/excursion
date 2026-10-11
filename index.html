@@ -120,10 +120,11 @@
 
   <div id="status" class="status"></div>
 
-  <!-- Lightbox agrandissement photo -->
+  <!-- Lightbox agrandissement photo / vidéo -->
   <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
     <button type="button" class="lightbox-close" aria-label="Fermer">&times;</button>
-    <img id="lightbox-img" src="" alt="Photo agrandie" />
+    <img id="lightbox-img" class="lightbox-media hidden" src="" alt="Photo agrandie" />
+    <video id="lightbox-video" class="lightbox-media hidden" controls playsinline></video>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

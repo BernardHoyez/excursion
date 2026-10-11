@@ -434,7 +434,8 @@
     }
     if (wp.video) {
       const src = mediaUrl(wp.video);
-      html += `<video controls playsinline src="${src}" class="exc-popup-video"></video>`;
+      html += `<video controls playsinline src="${src}" class="exc-popup-video" data-fullsrc="${src}" title="Cliquer pour agrandir"></video>`;
+      html += `<button type="button" class="exc-popup-link exc-btn-agrandir-video" data-fullsrc="${src}">Agrandir</button>`;
     }
     if (wp.audio) {
       const src = mediaUrl(wp.audio);
@@ -1002,33 +1003,76 @@
     document.getElementById('btn-prev').addEventListener('click', () => goToVisite(state.visiteIndex - 1));
     document.getElementById('btn-next').addEventListener('click', () => goToVisite(state.visiteIndex + 1));
 
-    // Lightbox « Agrandir »
+    // Lightbox « Agrandir » (photo + vidéo)
     const lightbox = document.getElementById('lightbox');
     const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxVideo = document.getElementById('lightbox-video');
 
-    function openLightbox(src) {
+    function openLightboxImage(src) {
       if (!src) return;
+      lightboxVideo.pause();
+      lightboxVideo.removeAttribute('src');
+      lightboxVideo.classList.add('hidden');
       lightboxImg.src = src;
+      lightboxImg.classList.remove('hidden');
       lightbox.classList.remove('hidden');
+    }
+
+    function openLightboxVideo(src) {
+      if (!src) return;
+      lightboxImg.removeAttribute('src');
+      lightboxImg.classList.add('hidden');
+      lightboxVideo.src = src;
+      lightboxVideo.classList.remove('hidden');
+      lightbox.classList.remove('hidden');
+      // Lecture auto après ouverture
+      lightboxVideo.play().catch(() => {});
     }
 
     function closeLightbox() {
       lightbox.classList.add('hidden');
-      lightboxImg.src = '';
+      lightboxImg.removeAttribute('src');
+      lightboxImg.classList.add('hidden');
+      lightboxVideo.pause();
+      lightboxVideo.removeAttribute('src');
+      lightboxVideo.classList.add('hidden');
     }
 
-    // Délégation : clic sur vignette ou bouton Agrandir dans les popups
+    // Délégation : vignette / bouton Agrandir photo ou vidéo
     document.addEventListener('click', (e) => {
-      const btn = e.target.closest('.exc-btn-agrandir');
+      const btnImg = e.target.closest('.exc-btn-agrandir');
+      const btnVid = e.target.closest('.exc-btn-agrandir-video');
       const img = e.target.closest('.exc-popup-img');
-      if (btn) {
+      // Clic sur la zone vidéo (pas sur les contrôles natifs uniquement — dbl-safe)
+      const vid = e.target.closest('.exc-popup-video');
+
+      if (btnImg) {
         e.preventDefault();
         e.stopPropagation();
-        openLightbox(btn.dataset.fullsrc);
+        openLightboxImage(btnImg.dataset.fullsrc);
       } else if (img && img.dataset.fullsrc) {
         e.preventDefault();
         e.stopPropagation();
-        openLightbox(img.dataset.fullsrc);
+        openLightboxImage(img.dataset.fullsrc);
+      } else if (btnVid) {
+        e.preventDefault();
+        e.stopPropagation();
+        openLightboxVideo(btnVid.dataset.fullsrc);
+      } else if (vid && vid.dataset.fullsrc && e.target === vid) {
+        // Clic sur l’élément video lui-même (hors contrôles selon navigateurs)
+        e.preventDefault();
+        e.stopPropagation();
+        openLightboxVideo(vid.dataset.fullsrc);
+      }
+    });
+
+    // Double-clic sur la vidéo de la popup → agrandir (plus fiable que le simple clic avec controls)
+    document.addEventListener('dblclick', (e) => {
+      const vid = e.target.closest('.exc-popup-video');
+      if (vid && vid.dataset.fullsrc) {
+        e.preventDefault();
+        e.stopPropagation();
+        openLightboxVideo(vid.dataset.fullsrc);
       }
     });
 

@@ -353,6 +353,7 @@ main {
   max-width: 100%;
   border-radius: 6px;
   display: block;
+  cursor: pointer;
 }
 
 .exc-popup-audio {
@@ -394,13 +395,22 @@ main {
   display: none;
 }
 
-.lightbox img {
+.lightbox-media {
   max-width: 95vw;
   max-height: 90vh;
   object-fit: contain;
   border-radius: 6px;
   box-shadow: 0 4px 30px rgba(0,0,0,0.5);
   cursor: default;
+}
+
+.lightbox-media.hidden {
+  display: none;
+}
+
+.lightbox video.lightbox-media {
+  background: #000;
+  width: min(95vw, 960px);
 }
 
 .lightbox-close {
