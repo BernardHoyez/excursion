@@ -31,6 +31,20 @@
   let currentBaseProd = null;   // couche fond actuelle
   let currentBaseVisite = null;
 
+  // Géolocalisation temps réel
+  const geoState = {
+    watchId: null,
+    active: false,
+    lat: null,
+    lng: null,
+    accuracy: null,
+    markerProd: null,
+    markerVisite: null,
+    accuracyCircleProd: null,
+    accuracyCircleVisite: null,
+    follow: true   // centre la carte sur la position au premier fix / si activé
+  };
+
   // MBTiles chargé en mémoire (partagé entre les deux cartes)
   const mbtilesState = {
     db: null,          // base sql.js
@@ -923,6 +937,178 @@
     document.getElementById('btn-next').disabled = index === state.waypoints.length - 1;
   }
 
+  // ---------- Géolocalisation temps réel ----------
+  function createUserLocIcon() {
+    return L.divIcon({
+      className: 'user-loc-marker',
+      html: '<div class="user-loc-wrap"><div class="user-loc-pulse"></div><div class="user-loc-dot"></div></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+  }
+
+  function updateUserLocationMarkers(lat, lng, accuracy) {
+    const latlng = [lat, lng];
+    const icon = createUserLocIcon();
+
+    // Production
+    if (mapProd) {
+      if (geoState.markerProd) {
+        geoState.markerProd.setLatLng(latlng);
+      } else {
+        geoState.markerProd = L.marker(latlng, {
+          icon,
+          zIndexOffset: 1000,
+          interactive: false
+        }).addTo(mapProd);
+      }
+      if (geoState.accuracyCircleProd) {
+        geoState.accuracyCircleProd.setLatLng(latlng);
+        geoState.accuracyCircleProd.setRadius(accuracy || 0);
+      } else if (accuracy) {
+        geoState.accuracyCircleProd = L.circle(latlng, {
+          radius: accuracy,
+          color: '#1e88e5',
+          weight: 1,
+          opacity: 0.4,
+          fillColor: '#1e88e5',
+          fillOpacity: 0.1,
+          interactive: false
+        }).addTo(mapProd);
+      }
+    }
+
+    // Visite
+    if (mapVisite) {
+      if (geoState.markerVisite) {
+        geoState.markerVisite.setLatLng(latlng);
+      } else {
+        geoState.markerVisite = L.marker(latlng, {
+          icon,
+          zIndexOffset: 1000,
+          interactive: false
+        }).addTo(mapVisite);
+      }
+      if (geoState.accuracyCircleVisite) {
+        geoState.accuracyCircleVisite.setLatLng(latlng);
+        geoState.accuracyCircleVisite.setRadius(accuracy || 0);
+      } else if (accuracy) {
+        geoState.accuracyCircleVisite = L.circle(latlng, {
+          radius: accuracy,
+          color: '#1e88e5',
+          weight: 1,
+          opacity: 0.4,
+          fillColor: '#1e88e5',
+          fillOpacity: 0.1,
+          interactive: false
+        }).addTo(mapVisite);
+      }
+    }
+  }
+
+  function removeUserLocationMarkers() {
+    if (geoState.markerProd && mapProd) {
+      mapProd.removeLayer(geoState.markerProd);
+      geoState.markerProd = null;
+    }
+    if (geoState.markerVisite && mapVisite) {
+      mapVisite.removeLayer(geoState.markerVisite);
+      geoState.markerVisite = null;
+    }
+    if (geoState.accuracyCircleProd && mapProd) {
+      mapProd.removeLayer(geoState.accuracyCircleProd);
+      geoState.accuracyCircleProd = null;
+    }
+    if (geoState.accuracyCircleVisite && mapVisite) {
+      mapVisite.removeLayer(geoState.accuracyCircleVisite);
+      geoState.accuracyCircleVisite = null;
+    }
+  }
+
+  function setGeolocButtonsActive(active) {
+    ['btn-geoloc-prod', 'btn-geoloc-visite'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('active', active);
+    });
+  }
+
+  function startGeolocation() {
+    if (!navigator.geolocation) {
+      showStatus('Géolocalisation non supportée par ce navigateur', 3500);
+      return;
+    }
+
+    if (geoState.watchId != null) {
+      stopGeolocation();
+      return;
+    }
+
+    showStatus('Activation GPS…');
+    geoState.follow = true;
+
+    geoState.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        geoState.lat = latitude;
+        geoState.lng = longitude;
+        geoState.accuracy = accuracy;
+        geoState.active = true;
+        setGeolocButtonsActive(true);
+
+        updateUserLocationMarkers(latitude, longitude, accuracy);
+
+        // Centrer au premier fix (ou si follow encore actif)
+        if (geoState.follow) {
+          const map = state.mode === 'production' ? mapProd : mapVisite;
+          if (map) {
+            map.setView([latitude, longitude], Math.max(map.getZoom(), 15));
+          }
+          geoState.follow = false; // ne pas recentrer en continu (l’utilisateur peut explorer)
+        }
+      },
+      (err) => {
+        let msg = 'Erreur GPS';
+        if (err.code === 1) msg = 'Permission de localisation refusée';
+        else if (err.code === 2) msg = 'Position indisponible';
+        else if (err.code === 3) msg = 'Délai GPS dépassé';
+        showStatus(msg, 4000);
+        stopGeolocation();
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 15000
+      }
+    );
+  }
+
+  function stopGeolocation() {
+    if (geoState.watchId != null) {
+      navigator.geolocation.clearWatch(geoState.watchId);
+      geoState.watchId = null;
+    }
+    geoState.active = false;
+    geoState.lat = null;
+    geoState.lng = null;
+    removeUserLocationMarkers();
+    setGeolocButtonsActive(false);
+    showStatus('GPS désactivé');
+  }
+
+  function toggleGeolocation() {
+    if (geoState.watchId != null) stopGeolocation();
+    else startGeolocation();
+  }
+
+  function centerOnUser() {
+    if (geoState.lat == null || geoState.lng == null) {
+      showStatus('Position GPS pas encore disponible');
+      return;
+    }
+    const map = state.mode === 'production' ? mapProd : mapVisite;
+    if (map) map.setView([geoState.lat, geoState.lng], Math.max(map.getZoom(), 16));
+  }
+
   // ---------- Événements ----------
   function bindEvents() {
     // Mode switch
@@ -997,6 +1183,45 @@
     document.getElementById('mbtiles-input-visite').addEventListener('change', e => {
       if (e.target.files[0]) loadMBTilesFile(e.target.files[0]);
       e.target.value = '';
+    });
+
+    // GPS temps réel (Production + Visite)
+    document.getElementById('btn-geoloc-prod').addEventListener('click', () => {
+      if (geoState.active) {
+        // Déjà actif : recentrer sur la position
+        centerOnUser();
+      } else {
+        toggleGeolocation();
+      }
+    });
+    document.getElementById('btn-geoloc-visite').addEventListener('click', () => {
+      if (geoState.active) {
+        centerOnUser();
+      } else {
+        toggleGeolocation();
+      }
+    });
+    // Appui long (≈600 ms) pour désactiver le GPS
+    ['btn-geoloc-prod', 'btn-geoloc-visite'].forEach((id) => {
+      const btn = document.getElementById(id);
+      let pressTimer = null;
+      const startPress = (e) => {
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          if (geoState.active) stopGeolocation();
+        }, 600);
+      };
+      const cancelPress = () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+      };
+      btn.addEventListener('touchstart', startPress, { passive: true });
+      btn.addEventListener('mousedown', startPress);
+      btn.addEventListener('touchend', cancelPress);
+      btn.addEventListener('mouseup', cancelPress);
+      btn.addEventListener('mouseleave', cancelPress);
     });
 
     // Visite navigation
