@@ -510,3 +510,183 @@ main {
     justify-content: center;
   }
 }
+
+/* ----- Mode Présentation ----- */
+#panel-presentation {
+  flex-direction: column;
+  background: #111;
+  color: #fff;
+}
+
+.pres-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255,255,255,0.95);
+  color: #222;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.pres-counter {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 3.5rem;
+  text-align: center;
+  color: #1a5f2a;
+}
+
+.pres-stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0a0a0a;
+  min-height: 0;
+}
+
+.pres-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #aaa;
+  font-size: 1rem;
+  max-width: 28rem;
+}
+
+.pres-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pres-slide.hidden,
+.pres-empty.hidden,
+.pres-no-photo.hidden,
+.pres-video.hidden,
+.pres-audio.hidden,
+.pres-modal.hidden,
+.pres-comment-text.hidden {
+  display: none !important;
+}
+
+.pres-photo-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  background: #000;
+}
+
+.pres-photo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.pres-no-photo {
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.pres-caption {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  background: rgba(0,0,0,0.75);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pres-media {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem 0.75rem;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pres-video {
+  max-width: min(100%, 640px);
+  max-height: 28vh;
+  border-radius: 6px;
+}
+
+.pres-audio {
+  width: min(100%, 420px);
+}
+
+.pres-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.pres-modal-inner {
+  background: #fff;
+  color: #222;
+  border-radius: 10px;
+  width: min(96vw, 900px);
+  height: min(88vh, 700px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+
+.pres-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.pres-modal-header h3 {
+  font-size: 1rem;
+  color: #1a5f2a;
+}
+
+.pres-comment-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: #fafafa;
+}
+
+.pres-comment-text {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 768px) {
+  .pres-toolbar {
+    justify-content: center;
+  }
+  .pres-video {
+    max-height: 22vh;
+  }
+  .mode-switch {
+    gap: 0.5rem;
+    font-size: 0.8rem;
+  }
+}

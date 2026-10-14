@@ -18,6 +18,7 @@
     <div class="mode-switch">
       <label><input type="radio" name="mode" value="production" checked /> Production</label>
       <label><input type="radio" name="mode" value="visite" /> Visite</label>
+      <label><input type="radio" name="mode" value="presentation" /> Présentation</label>
     </div>
   </header>
 
@@ -118,6 +119,50 @@
         <ul id="wp-list-visite"></ul>
       </aside>
     </section>
+
+    <!-- Panneau Présentation -->
+    <section id="panel-presentation" class="panel">
+      <div class="pres-toolbar">
+        <label class="btn file-btn">
+          📂 Ouvrir KMZ
+          <input type="file" id="file-input-pres" accept=".kmz" hidden />
+        </label>
+        <button id="btn-pres-prev" class="btn" disabled>◀</button>
+        <span id="pres-counter" class="pres-counter">0 / 0</span>
+        <button id="btn-pres-next" class="btn" disabled>▶</button>
+        <button id="btn-pres-comment" class="btn" disabled>💬 Commentaire</button>
+        <button id="btn-pres-export-pptx" class="btn primary" disabled>💾 PPTX</button>
+        <button id="btn-pres-export-html" class="btn primary" disabled>💾 HTML</button>
+        <button id="btn-pres-fullscreen" class="btn" title="Plein écran">⛶</button>
+      </div>
+      <div id="pres-stage" class="pres-stage">
+        <div id="pres-empty" class="pres-empty">
+          Chargez un KMZ (ou ouvrez-en un en Production / Visite) pour lancer la présentation.
+        </div>
+        <div id="pres-slide" class="pres-slide hidden">
+          <div id="pres-photo-wrap" class="pres-photo-wrap">
+            <img id="pres-photo" class="pres-photo" alt="" />
+            <div id="pres-no-photo" class="pres-no-photo hidden">Pas de photo</div>
+          </div>
+          <div id="pres-caption" class="pres-caption"></div>
+          <div id="pres-media" class="pres-media">
+            <video id="pres-video" class="pres-video hidden" controls playsinline></video>
+            <audio id="pres-audio" class="pres-audio hidden" controls></audio>
+          </div>
+        </div>
+      </div>
+      <!-- Modal commentaire HTML -->
+      <div id="pres-comment-modal" class="pres-modal hidden">
+        <div class="pres-modal-inner">
+          <div class="pres-modal-header">
+            <h3 id="pres-comment-title">Commentaire</h3>
+            <button type="button" id="pres-comment-close" class="btn">&times;</button>
+          </div>
+          <iframe id="pres-comment-frame" class="pres-comment-frame" title="Commentaire HTML"></iframe>
+          <div id="pres-comment-text" class="pres-comment-text hidden"></div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <div id="status" class="status"></div>
@@ -133,6 +178,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/@mapbox/togeojson@0.16.2/togeojson.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

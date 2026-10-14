@@ -13,6 +13,7 @@
     waypoints: [],        // [{id, name, lat, lng, comment, photo, video, audio, html, marker}]
     currentWpId: null,
     visiteIndex: -1,
+    presIndex: -1,
     files: {              // Blobs pour les médias (Production)
       photos: {},
       videos: {},
@@ -326,12 +327,19 @@
     state.mode = mode;
     document.getElementById('panel-production').classList.toggle('active', mode === 'production');
     document.getElementById('panel-visite').classList.toggle('active', mode === 'visite');
+    document.getElementById('panel-presentation').classList.toggle('active', mode === 'presentation');
 
     // Redimensionner les cartes
     setTimeout(() => {
       if (mode === 'production' && mapProd) mapProd.invalidateSize();
       if (mode === 'visite' && mapVisite) mapVisite.invalidateSize();
     }, 100);
+
+    if (mode === 'presentation') {
+      initPresentation();
+    } else {
+      stopPresentationMedia();
+    }
   }
 
   // ---------- Affichage des waypoints ----------
@@ -1109,11 +1117,375 @@
     if (map) map.setView([geoState.lat, geoState.lng], Math.max(map.getZoom(), 16));
   }
 
+  // ---------- Mode Présentation ----------
+  function stopPresentationMedia() {
+    const v = document.getElementById('pres-video');
+    const a = document.getElementById('pres-audio');
+    if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
+    if (a) { a.pause(); a.removeAttribute('src'); a.load(); }
+  }
+
+  function initPresentation() {
+    const has = state.waypoints.length > 0;
+    document.getElementById('btn-pres-export-pptx').disabled = !has;
+    document.getElementById('btn-pres-export-html').disabled = !has;
+    if (!has) {
+      state.presIndex = -1;
+      document.getElementById('pres-empty').classList.remove('hidden');
+      document.getElementById('pres-slide').classList.add('hidden');
+      document.getElementById('pres-counter').textContent = '0 / 0';
+      document.getElementById('btn-pres-prev').disabled = true;
+      document.getElementById('btn-pres-next').disabled = true;
+      document.getElementById('btn-pres-comment').disabled = true;
+      return;
+    }
+    if (state.presIndex < 0 || state.presIndex >= state.waypoints.length) {
+      state.presIndex = 0;
+    }
+    showPresentationSlide(state.presIndex);
+  }
+
+  function showPresentationSlide(index) {
+    if (index < 0 || index >= state.waypoints.length) return;
+    stopPresentationMedia();
+    state.presIndex = index;
+    const wp = state.waypoints[index];
+    const n = state.waypoints.length;
+
+    document.getElementById('pres-empty').classList.add('hidden');
+    document.getElementById('pres-slide').classList.remove('hidden');
+    document.getElementById('pres-counter').textContent = `${index + 1} / ${n}`;
+    document.getElementById('btn-pres-prev').disabled = index === 0;
+    document.getElementById('btn-pres-next').disabled = index === n - 1;
+    document.getElementById('btn-pres-export-pptx').disabled = false;
+    document.getElementById('btn-pres-export-html').disabled = false;
+
+    document.getElementById('pres-caption').textContent = wp.name || `Point ${index + 1}`;
+
+    // Photo pleine page
+    const photoEl = document.getElementById('pres-photo');
+    const noPhoto = document.getElementById('pres-no-photo');
+    if (wp.photo) {
+      const src = mediaUrl(wp.photo);
+      photoEl.src = src;
+      photoEl.classList.remove('hidden');
+      noPhoto.classList.add('hidden');
+    } else {
+      photoEl.removeAttribute('src');
+      photoEl.classList.add('hidden');
+      noPhoto.classList.remove('hidden');
+    }
+
+    // Vidéo / audio
+    const vid = document.getElementById('pres-video');
+    const aud = document.getElementById('pres-audio');
+    if (wp.video) {
+      vid.src = mediaUrl(wp.video);
+      vid.classList.remove('hidden');
+      aud.classList.add('hidden');
+    } else if (wp.audio) {
+      aud.src = mediaUrl(wp.audio);
+      aud.classList.remove('hidden');
+      vid.classList.add('hidden');
+    } else {
+      vid.classList.add('hidden');
+      aud.classList.add('hidden');
+    }
+
+    // Bouton commentaire (HTML page ou texte)
+    const hasComment = !!(wp.html || cleanComment(wp.comment));
+    document.getElementById('btn-pres-comment').disabled = !hasComment;
+  }
+
+  function openPresComment() {
+    const wp = state.waypoints[state.presIndex];
+    if (!wp) return;
+    const modal = document.getElementById('pres-comment-modal');
+    const frame = document.getElementById('pres-comment-frame');
+    const textEl = document.getElementById('pres-comment-text');
+    document.getElementById('pres-comment-title').textContent = wp.name || 'Commentaire';
+
+    if (wp.html) {
+      frame.src = mediaUrl(wp.html);
+      frame.classList.remove('hidden');
+      textEl.classList.add('hidden');
+    } else {
+      frame.removeAttribute('src');
+      frame.classList.add('hidden');
+      textEl.textContent = cleanComment(wp.comment) || '';
+      textEl.classList.remove('hidden');
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function closePresComment() {
+    const modal = document.getElementById('pres-comment-modal');
+    const frame = document.getElementById('pres-comment-frame');
+    modal.classList.add('hidden');
+    frame.removeAttribute('src');
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      if (!blob) return resolve(null);
+      if (typeof blob === 'string') return resolve(blob);
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function exportPresentationPptx() {
+    if (!state.waypoints.length) {
+      showStatus('Aucun slide à exporter');
+      return;
+    }
+    if (typeof PptxGenJS === 'undefined') {
+      showStatus('Bibliothèque PPTX non chargée');
+      return;
+    }
+    showStatus('Création du PPTX…');
+    try {
+      const pptx = new PptxGenJS();
+      pptx.defineLayout({ name: 'LAYOUT_16x9', width: 13.333, height: 7.5 });
+      pptx.layout = 'LAYOUT_16x9';
+      pptx.author = 'Excursion';
+      pptx.title = 'Présentation Excursion';
+
+      for (let i = 0; i < state.waypoints.length; i++) {
+        const wp = state.waypoints[i];
+        const slide = pptx.addSlide();
+        slide.background = { color: '000000' };
+
+        if (wp.photo) {
+          const dataUrl = await blobToDataUrl(wp.photo instanceof Blob ? wp.photo : await fetch(wp.photo).then(r => r.blob()));
+          if (dataUrl) {
+            slide.addImage({
+              data: dataUrl,
+              x: 0.3,
+              y: 0.2,
+              w: 12.7,
+              h: 6.2,
+              sizing: { type: 'contain', w: 12.7, h: 6.2 }
+            });
+          }
+        } else {
+          slide.addText(wp.name || `Point ${i + 1}`, {
+            x: 0.5, y: 3, w: 12.3, h: 1,
+            color: 'FFFFFF', fontSize: 28, align: 'center'
+          });
+        }
+
+        slide.addText(wp.name || `Point ${i + 1}`, {
+          x: 0.3, y: 6.5, w: 12.7, h: 0.5,
+          color: 'FFFFFF', fontSize: 16, align: 'center', bold: true
+        });
+
+        const note = cleanComment(wp.comment);
+        if (note) slide.addNotes(note);
+        if (wp.video || wp.audio) {
+          slide.addNotes((slide._slideLayout?.notes || '') +
+            (wp.video ? '\n[Vidéo jointe dans le KMZ / export HTML]' : '') +
+            (wp.audio ? '\n[Audio joint dans le KMZ / export HTML]' : ''));
+        }
+      }
+
+      await pptx.writeFile({ fileName: 'excursion-presentation.pptx' });
+      showStatus('PPTX téléchargé');
+    } catch (err) {
+      console.error(err);
+      showStatus('Erreur PPTX : ' + err.message, 4000);
+    }
+  }
+
+  async function exportPresentationHtml() {
+    if (!state.waypoints.length) {
+      showStatus('Aucun slide à exporter');
+      return;
+    }
+    showStatus('Création de la présentation HTML…');
+    try {
+      const zip = new JSZip();
+      const mediaFolder = zip.folder('media');
+      const slidesData = [];
+
+      for (let i = 0; i < state.waypoints.length; i++) {
+        const wp = state.waypoints[i];
+        const entry = {
+          name: wp.name || `Point ${i + 1}`,
+          comment: cleanComment(wp.comment),
+          photo: null,
+          video: null,
+          audio: null,
+          html: null
+        };
+        const pad = String(i + 1).padStart(2, '0');
+
+        if (wp.photo) {
+          const blob = wp.photo instanceof Blob ? wp.photo : await fetch(wp.photo).then(r => r.blob());
+          const fname = `photo_${pad}.jpg`;
+          mediaFolder.file(fname, blob);
+          entry.photo = 'media/' + fname;
+        }
+        if (wp.video) {
+          const blob = wp.video instanceof Blob ? wp.video : await fetch(wp.video).then(r => r.blob());
+          const fname = `video_${pad}.mp4`;
+          mediaFolder.file(fname, blob);
+          entry.video = 'media/' + fname;
+        }
+        if (wp.audio) {
+          const blob = wp.audio instanceof Blob ? wp.audio : await fetch(wp.audio).then(r => r.blob());
+          const fname = `audio_${pad}.mp3`;
+          mediaFolder.file(fname, blob);
+          entry.audio = 'media/' + fname;
+        }
+        if (wp.html) {
+          const blob = wp.html instanceof Blob ? wp.html : await fetch(wp.html).then(r => r.blob());
+          const fname = `page_${pad}.htm`;
+          mediaFolder.file(fname, blob);
+          entry.html = 'media/' + fname;
+        }
+        slidesData.push(entry);
+      }
+
+      const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Présentation Excursion</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#111;color:#fff;height:100vh;display:flex;flex-direction:column}
+.bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.6rem;background:#f4f4f4;color:#222}
+button{padding:.4rem .8rem;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
+button:disabled{opacity:.4}
+#stage{flex:1;display:flex;flex-direction:column;min-height:0;background:#000}
+#photoWrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+#photo{max-width:100%;max-height:100%;object-fit:contain}
+#caption{text-align:center;padding:.5rem;background:rgba(0,0,0,.8);font-weight:600}
+#media{padding:.5rem;background:rgba(0,0,0,.85);text-align:center}
+video,audio{max-width:min(100%,640px)}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:1rem;z-index:9}
+#modal.open{display:flex}
+#modalInner{background:#fff;color:#222;border-radius:10px;width:min(96vw,900px);height:min(88vh,700px);display:flex;flex-direction:column;overflow:hidden}
+#modalInner header{display:flex;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid #ddd}
+iframe{flex:1;border:0;width:100%}
+#commentText{flex:1;overflow:auto;padding:1rem;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="bar">
+  <button id="prev">◀</button>
+  <span id="counter">1 / 1</span>
+  <button id="next">▶</button>
+  <button id="btnComment">💬 Commentaire</button>
+</div>
+<div id="stage">
+  <div id="photoWrap"><img id="photo" alt=""/></div>
+  <div id="caption"></div>
+  <div id="media"></div>
+</div>
+<div id="modal"><div id="modalInner">
+  <header><strong id="modalTitle">Commentaire</strong><button id="closeModal">✕</button></header>
+  <iframe id="frame"></iframe>
+  <div id="commentText" style="display:none"></div>
+</div></div>
+<script>
+const slides = ${JSON.stringify(slidesData)};
+let i = 0;
+const photo = document.getElementById('photo');
+const caption = document.getElementById('caption');
+const media = document.getElementById('media');
+const counter = document.getElementById('counter');
+const prev = document.getElementById('prev');
+const next = document.getElementById('next');
+const btnComment = document.getElementById('btnComment');
+const modal = document.getElementById('modal');
+function show(idx){
+  i = idx;
+  const s = slides[i];
+  counter.textContent = (i+1)+' / '+slides.length;
+  prev.disabled = i===0; next.disabled = i===slides.length-1;
+  caption.textContent = s.name;
+  photo.style.display = s.photo ? 'block' : 'none';
+  photo.src = s.photo || '';
+  media.innerHTML = '';
+  if(s.video){ const v=document.createElement('video'); v.controls=true; v.playsInline=true; v.src=s.video; media.appendChild(v); }
+  else if(s.audio){ const a=document.createElement('audio'); a.controls=true; a.src=s.audio; media.appendChild(a); }
+  btnComment.disabled = !(s.html || s.comment);
+}
+prev.onclick=()=>show(i-1);
+next.onclick=()=>show(i+1);
+btnComment.onclick=()=>{
+  const s=slides[i];
+  document.getElementById('modalTitle').textContent=s.name;
+  const frame=document.getElementById('frame');
+  const ct=document.getElementById('commentText');
+  if(s.html){ frame.src=s.html; frame.style.display='block'; ct.style.display='none'; }
+  else { frame.removeAttribute('src'); frame.style.display='none'; ct.textContent=s.comment||''; ct.style.display='block'; }
+  modal.classList.add('open');
+};
+document.getElementById('closeModal').onclick=()=>{ modal.classList.remove('open'); document.getElementById('frame').removeAttribute('src'); };
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight') show(Math.min(i+1,slides.length-1));
+  if(e.key==='ArrowLeft') show(Math.max(i-1,0));
+  if(e.key==='Escape') modal.classList.remove('open');
+});
+show(0);
+</script>
+</body>
+</html>`;
+
+      zip.file('index.html', html);
+      const content = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(content);
+      a.download = 'excursion-presentation.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showStatus('Présentation HTML (ZIP) téléchargée');
+    } catch (err) {
+      console.error(err);
+      showStatus('Erreur export HTML : ' + err.message, 4000);
+    }
+  }
+
   // ---------- Événements ----------
   function bindEvents() {
     // Mode switch
     document.querySelectorAll('input[name="mode"]').forEach(r => {
       r.addEventListener('change', e => switchMode(e.target.value));
+    });
+
+    // Présentation
+    document.getElementById('file-input-pres').addEventListener('change', async (e) => {
+      if (e.target.files[0]) {
+        await loadFileVisite(e.target.files[0]);
+        initPresentation();
+      }
+      e.target.value = '';
+    });
+    document.getElementById('btn-pres-prev').addEventListener('click', () => showPresentationSlide(state.presIndex - 1));
+    document.getElementById('btn-pres-next').addEventListener('click', () => showPresentationSlide(state.presIndex + 1));
+    document.getElementById('btn-pres-comment').addEventListener('click', openPresComment);
+    document.getElementById('pres-comment-close').addEventListener('click', closePresComment);
+    document.getElementById('pres-comment-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'pres-comment-modal') closePresComment();
+    });
+    document.getElementById('btn-pres-export-pptx').addEventListener('click', exportPresentationPptx);
+    document.getElementById('btn-pres-export-html').addEventListener('click', exportPresentationHtml);
+    document.getElementById('btn-pres-fullscreen').addEventListener('click', () => {
+      const stage = document.getElementById('panel-presentation');
+      if (!document.fullscreenElement) stage.requestFullscreen?.().catch(() => {});
+      else document.exitFullscreen?.();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (state.mode !== 'presentation') return;
+      if (e.key === 'ArrowRight') showPresentationSlide(state.presIndex + 1);
+      if (e.key === 'ArrowLeft') showPresentationSlide(state.presIndex - 1);
+      if (e.key === 'Escape') closePresComment();
     });
 
     // Fichiers
