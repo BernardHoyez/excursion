@@ -156,10 +156,13 @@
         <div class="pres-modal-inner">
           <div class="pres-modal-header">
             <h3 id="pres-comment-title">Commentaire</h3>
-            <button type="button" id="pres-comment-close" class="btn">&times;</button>
+            <button type="button" id="pres-comment-close" aria-label="Fermer">&times;</button>
           </div>
           <iframe id="pres-comment-frame" class="pres-comment-frame" title="Commentaire HTML"></iframe>
           <div id="pres-comment-text" class="pres-comment-text hidden"></div>
+          <div class="pres-modal-footer">
+            <button type="button" id="pres-comment-close-bottom" class="btn-pres-close-bottom">Fermer et revenir à la diapo</button>
+          </div>
         </div>
       </div>
     </section>

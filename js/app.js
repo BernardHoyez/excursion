@@ -1353,13 +1353,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <title>Présentation Excursion</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#111;color:#fff;height:100vh;display:flex;flex-direction:column}
-.bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.6rem;background:#f4f4f4;color:#222}
-button{padding:.4rem .8rem;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
+body{font-family:system-ui,sans-serif;background:#111;color:#fff;height:100vh;height:100dvh;display:flex;flex-direction:column}
+.bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.6rem;background:#f4f4f4;color:#222;flex-shrink:0}
+button{padding:.45rem .85rem;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:1rem}
 button:disabled{opacity:.4}
 #stage{flex:1;display:flex;flex-direction:column;min-height:0;background:#000}
 #photoWrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
@@ -1367,31 +1367,57 @@ button:disabled{opacity:.4}
 #caption{text-align:center;padding:.5rem;background:rgba(0,0,0,.8);font-weight:600}
 #media{padding:.5rem;background:rgba(0,0,0,.85);text-align:center}
 video,audio{max-width:min(100%,640px)}
-#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:1rem;z-index:9}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100;flex-direction:column;padding:0}
 #modal.open{display:flex}
-#modalInner{background:#fff;color:#222;border-radius:10px;width:min(96vw,900px);height:min(88vh,700px);display:flex;flex-direction:column;overflow:hidden}
-#modalInner header{display:flex;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid #ddd}
-iframe{flex:1;border:0;width:100%}
-#commentText{flex:1;overflow:auto;padding:1rem;white-space:pre-wrap}
+#modalInner{background:#fff;color:#222;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden}
+#modalHeader{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.65rem .75rem;border-bottom:1px solid #ddd;background:#1a5f2a;color:#fff;flex-shrink:0;min-height:52px}
+#modalTitle{font-size:1rem;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#closeModal{
+  flex-shrink:0;width:44px;height:44px;border:none;border-radius:50%;
+  background:#fff;color:#1a5f2a;font-size:1.6rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer;-webkit-tap-highlight-color:transparent
+}
+#closeModal:active{background:#e8f5e9}
+#modalBody{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+iframe{flex:1;border:0;width:100%;min-height:0;background:#fafafa}
+#commentText{flex:1;overflow:auto;padding:1rem;white-space:pre-wrap;-webkit-overflow-scrolling:touch}
+#modalFooter{flex-shrink:0;padding:.65rem .75rem;padding-bottom:max(.65rem,env(safe-area-inset-bottom));border-top:1px solid #ddd;background:#f5f5f5}
+#closeModalBottom{
+  width:100%;padding:.85rem 1rem;border:none;border-radius:8px;
+  background:#1a5f2a;color:#fff;font-size:1.05rem;font-weight:600;cursor:pointer;
+  -webkit-tap-highlight-color:transparent
+}
+#closeModalBottom:active{background:#0f3d1a}
 </style>
 </head>
 <body>
 <div class="bar">
-  <button id="prev">◀</button>
+  <button type="button" id="prev">◀</button>
   <span id="counter">1 / 1</span>
-  <button id="next">▶</button>
-  <button id="btnComment">💬 Commentaire</button>
+  <button type="button" id="next">▶</button>
+  <button type="button" id="btnComment">💬 Commentaire</button>
 </div>
 <div id="stage">
   <div id="photoWrap"><img id="photo" alt=""/></div>
   <div id="caption"></div>
   <div id="media"></div>
 </div>
-<div id="modal"><div id="modalInner">
-  <header><strong id="modalTitle">Commentaire</strong><button id="closeModal">✕</button></header>
-  <iframe id="frame"></iframe>
-  <div id="commentText" style="display:none"></div>
-</div></div>
+<div id="modal" role="dialog" aria-modal="true">
+  <div id="modalInner">
+    <div id="modalHeader">
+      <strong id="modalTitle">Commentaire</strong>
+      <button type="button" id="closeModal" aria-label="Fermer">×</button>
+    </div>
+    <div id="modalBody">
+      <iframe id="frame" title="Commentaire"></iframe>
+      <div id="commentText" style="display:none"></div>
+    </div>
+    <div id="modalFooter">
+      <button type="button" id="closeModalBottom">Fermer et revenir à la diapo</button>
+    </div>
+  </div>
+</div>
 <script>
 const slides = ${JSON.stringify(slidesData)};
 let i = 0;
@@ -1403,7 +1429,13 @@ const prev = document.getElementById('prev');
 const next = document.getElementById('next');
 const btnComment = document.getElementById('btnComment');
 const modal = document.getElementById('modal');
+function closeComment(){
+  modal.classList.remove('open');
+  const frame=document.getElementById('frame');
+  frame.removeAttribute('src');
+}
 function show(idx){
+  if(idx<0||idx>=slides.length)return;
   i = idx;
   const s = slides[i];
   counter.textContent = (i+1)+' / '+slides.length;
@@ -1427,11 +1459,12 @@ btnComment.onclick=()=>{
   else { frame.removeAttribute('src'); frame.style.display='none'; ct.textContent=s.comment||''; ct.style.display='block'; }
   modal.classList.add('open');
 };
-document.getElementById('closeModal').onclick=()=>{ modal.classList.remove('open'); document.getElementById('frame').removeAttribute('src'); };
+document.getElementById('closeModal').onclick=closeComment;
+document.getElementById('closeModalBottom').onclick=closeComment;
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight') show(Math.min(i+1,slides.length-1));
   if(e.key==='ArrowLeft') show(Math.max(i-1,0));
-  if(e.key==='Escape') modal.classList.remove('open');
+  if(e.key==='Escape') closeComment();
 });
 show(0);
 </script>
@@ -1471,6 +1504,7 @@ show(0);
     document.getElementById('btn-pres-next').addEventListener('click', () => showPresentationSlide(state.presIndex + 1));
     document.getElementById('btn-pres-comment').addEventListener('click', openPresComment);
     document.getElementById('pres-comment-close').addEventListener('click', closePresComment);
+    document.getElementById('pres-comment-close-bottom').addEventListener('click', closePresComment);
     document.getElementById('pres-comment-modal').addEventListener('click', (e) => {
       if (e.target.id === 'pres-comment-modal') closePresComment();
     });
